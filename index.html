@@ -1,9 +1,68 @@
-<style>
-    .menu-card { width: 200px; height: 150px; background: #00796b; color: white; display: inline-flex; align-items: center; justify-content: center; margin: 10px; border-radius: 15px; font-size: 24px; text-decoration: none; font-weight: bold; }
-</style>
-<div style="text-align: center; padding-top: 50px;">
-    <h1>裕文資源班 - 語音報讀考卷區</h1>
-    <a href="g3/nature.html" class="menu-card">三年級 自然</a>
-    <a href="g5/social.html" class="menu-card">五年級 社會</a>
-    <a href="g6/nature.html" class="menu-card">六年級 自然</a>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>裕文資源班 - 語音報讀考卷大廳</title>
+    <style>
+        body { margin: 0; background: #eee; font-family: "Microsoft JhengHei", sans-serif; display: flex; flex-direction: column; align-items: center; padding-bottom: 50px; }
+        #header { width: 100%; height: 80px; background: #004d40; color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.3); font-size: 24px; font-weight: bold; margin-bottom: 30px; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 1000px; padding: 20px; }
+        .menu-card { width: 280px; background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; text-decoration: none; transition: 0.3s; display: flex; flex-direction: column; }
+        .menu-card:hover { transform: translateY(-10px); box-shadow: 0 8px 25px rgba(0,0,0,0.2); }
+        .card-header { height: 100px; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+        .card-body { padding: 20px; text-align: center; background: #fafafa; }
+        .card-title { font-size: 20px; color: #333; font-weight: bold; margin-bottom: 10px; }
+        .card-tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 14px; background: #e0f2f1; color: #00796b; }
+        
+        /* 年級配色 */
+        .g3 { background-color: #ffca28; }
+        .g5 { background-color: #42a5f5; }
+        .g6 { background-color: #66bb6a; }
+        .test-card { background-color: #78909c; }
+    </style>
+</head>
+<body>
+
+<div id="header">🏫 裕文國小資源班 - 語音報讀考卷入口</div>
+
+<div class="container">
+    <a href="test/裕文資源班_學生考卷.html" class="menu-card">
+        <div class="card-header test-card">🧪</div>
+        <div class="card-body">
+            <div class="card-title">報讀功能測試檔</div>
+            <div class="card-tag">目前存放於 test 資料夾</div>
+        </div>
+    </a>
+
+    <a href="#" class="menu-card" style="opacity: 0.5; cursor: not-allowed;">
+        <div class="card-header g3">🦋</div>
+        <div class="card-body">
+            <div class="card-title">三年級 自然/社會</div>
+            <div class="card-tag">建設中</div>
+        </div>
+    </a>
+
+    <a href="#" class="menu-card" style="opacity: 0.5; cursor: not-allowed;">
+        <div class="card-header g5">📘</div>
+        <div class="card-body">
+            <div class="card-title">五年級 自然/社會</div>
+            <div class="card-tag">建設中</div>
+        </div>
+    </a>
+
+    <a href="#" class="menu-card" style="opacity: 0.5; cursor: not-allowed;">
+        <div class="card-header g6">🔭</div>
+        <div class="card-body">
+            <div class="card-title">六年級 自然/社會</div>
+            <div class="card-tag">建設中</div>
+        </div>
+    </a>
 </div>
+
+<div style="margin-top: 50px; color: #999; font-size: 14px;">
+    請用平板掃描 QR Code 進入對應年級
+</div>
+
+</body>
+</html>

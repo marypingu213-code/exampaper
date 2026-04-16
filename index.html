@@ -116,22 +116,25 @@
     <div class="welcome-text">小朋友，點一張你的考卷開始吧！ ✨</div>
 
     <div class="container">
+        <!-- 三年級：先社會，後自然 -->
         <div class="grade-section">
             <div class="grade-label">【 三年級 】</div>
-            <a href="#" id="g3n-link" class="menu-card g3-card"><div class="card-icon">🌱</div><div class="card-title">自然科學</div></a>
             <a href="#" id="g3s-link" class="menu-card g3-card"><div class="card-icon">🗺️</div><div class="card-title">社會領域</div></a>
+            <a href="#" id="g3n-link" class="menu-card g3-card"><div class="card-icon">🌱</div><div class="card-title">自然科學</div></a>
         </div>
 
+        <!-- 五年級：先社會，後自然 -->
         <div class="grade-section">
             <div class="grade-label">【 五年級 】</div>
-            <a href="#" id="g5n-link" class="menu-card g5-card"><div class="card-icon">🔬</div><div class="card-title">自然科學</div></a>
             <a href="#" id="g5s-link" class="menu-card g5-card"><div class="card-icon">🏛️</div><div class="card-title">社會領域</div></a>
+            <a href="#" id="g5n-link" class="menu-card g5-card"><div class="card-icon">🔬</div><div class="card-title">自然科學</div></a>
         </div>
 
+        <!-- 六年級：先社會，後自然 -->
         <div class="grade-section">
             <div class="grade-label">【 六年級 】</div>
-            <a href="#" id="g6n-link" class="menu-card g6-card"><div class="card-icon">🔭</div><div class="card-title">自然科學</div></a>
             <a href="#" id="g6s-link" class="menu-card g6-card"><div class="card-icon">🌍</div><div class="card-title">社會領域</div></a>
+            <a href="#" id="g6n-link" class="menu-card g6-card"><div class="card-icon">🔭</div><div class="card-title">自然科學</div></a>
         </div>
     </div>
 
@@ -142,10 +145,11 @@
     </div>
 
     <script>
-        /* 🛠️ 自動設定為您截圖中的公開網址 */
+        /* 🛠️ Netlify 公開網址設定 */
         const netlifyBaseUrl = "https://lively-blini-f8f299.netlify.app/"; 
 
         function initApp() {
+            // 設定正確的連結路徑
             document.getElementById('g3n-link').href = netlifyBaseUrl + "g3n.html";
             document.getElementById('g3s-link').href = netlifyBaseUrl + "g3s.html";
             document.getElementById('g5n-link').href = netlifyBaseUrl + "g5n.html";
@@ -153,6 +157,7 @@
             document.getElementById('g6n-link').href = netlifyBaseUrl + "g6n.html";
             document.getElementById('g6s-link').href = netlifyBaseUrl + "g6s.html";
 
+            // 生成大廳 QR Code (目前網頁的網址)
             const currentUrl = window.location.href;
             new QRCode(document.getElementById("qrcode"), {
                 text: currentUrl,

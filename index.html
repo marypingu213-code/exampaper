@@ -3,61 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>裕文資源班 - 語音報讀大廳</title>
+    <title>裕文國小資源班 - 報讀大廳</title>
+    <!-- 引入 QR Code 產生庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { margin: 0; background: #f4f4f4; font-family: "Microsoft JhengHei", sans-serif; display: flex; flex-direction: column; align-items: center; padding-bottom: 50px; }
-        #header { width: 100%; height: 80px; background: #004d40; color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.3); font-size: 24px; font-weight: bold; margin-bottom: 20px; }
-        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 1000px; padding: 20px; }
-        .menu-card { width: 220px; background: white; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; text-decoration: none; transition: 0.3s; display: flex; flex-direction: column; }
-        .menu-card:hover { transform: translateY(-5px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
-        .card-header { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 40px; }
-        .card-body { padding: 15px; text-align: center; }
-        .card-title { font-size: 18px; color: #333; font-weight: bold; }
+        :root {
+            --primary: #004d40;
+            --bg: #f0f4f8;
+            --g3-color: #ffca28;
+            --g5-color: #42a5f5;
+            --g6-color: #66bb6a;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg);
+            font-family: "Microsoft JhengHei", "Heiti TC", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-bottom: 60px;
+        }
+
+        #header {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            padding: 25px 0;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            font-size: 28px;
+            font-weight: bold;
+            border-bottom: 6px solid #ffc107;
+        }
+
+        .welcome-text {
+            margin: 20px 0;
+            font-size: 20px;
+            color: #37474f;
+            background: white;
+            padding: 10px 30px;
+            border-radius: 50px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            width: 90%;
+            max-width: 1000px;
+            padding: 20px;
+        }
+
+        .grade-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: rgba(255,255,255,0.6);
+            padding: 15px;
+            border-radius: 20px;
+            border: 2px solid #ddd;
+        }
+
+        .grade-label {
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            color: #444;
+            margin-bottom: 5px;
+        }
+
+        .menu-card {
+            background: white;
+            border-radius: 18px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border: 3px solid transparent;
+        }
+
+        .menu-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .menu-card:active {
+            transform: scale(0.95);
+        }
+
+        .card-icon {
+            font-size: 45px;
+            margin-right: 20px;
+            width: 65px;
+            height: 65px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+        }
+
+        .card-info {
+            text-align: left;
+        }
+
+        .card-title {
+            font-size: 22px;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        .card-sub {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        /* 顏色分類 */
+        .g3-card { border-bottom: 6px solid var(--g3-color); }
+        .g3-bg { background-color: #fff9c4; }
         
-        /* 大廳專屬 QR Code 區域 */
-        #hall-qr { background: white; width: 90%; max-width: 300px; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 40px; display: flex; flex-direction: column; align-items: center; border: 2px solid #004d40; }
-        #qrcode { padding: 10px; background: white; }
-        
-        /* 配色 */
-        .g3 { background-color: #ffca28; } .g5 { background-color: #42a5f5; } .g6 { background-color: #66bb6a; } .test-card { background-color: #78909c; }
+        .g5-card { border-bottom: 6px solid var(--g5-color); }
+        .g5-bg { background-color: #e3f2fd; }
+
+        .g6-card { border-bottom: 6px solid var(--g6-color); }
+        .g6-bg { background-color: #e8f5e9; }
+
+        /* QR Code 區塊 */
+        #qr-footer {
+            margin-top: 40px;
+            background: white;
+            padding: 30px;
+            border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 4px dashed var(--primary);
+        }
+
+        #qrcode {
+            padding: 15px;
+            background: white;
+        }
+
+        .qr-tip {
+            margin-top: 15px;
+            font-weight: bold;
+            color: var(--primary);
+            font-size: 18px;
+        }
+
+        @media (max-width: 600px) {
+            .container { grid-template-columns: 1fr; }
+            #header { font-size: 22px; }
+        }
     </style>
 </head>
-<body onload="generateHallQR()">
+<body onload="initApp()">
 
-<div id="header">🏫 裕文國小資源班 - 語音報讀大廳</div>
+    <div id="header">🏫 裕文國小資源班 - 考卷報讀大廳</div>
+    
+    <div class="welcome-text">小朋友，請選一張你的考卷喔！ ✨</div>
 
-<div class="container">
-    <a href="test/裕文資源班_學生考卷.html" class="menu-card">
-        <div class="card-header test-card">🧪</div>
-        <div class="card-body"><div class="card-title">報讀測試檔</div></div>
-    </a>
+    <div class="container">
+        <!-- 三年級區 -->
+        <div class="grade-section">
+            <div class="grade-label">【 三年級 】</div>
+            <a href="g3n.html" class="menu-card g3-card">
+                <div class="card-icon g3-bg">🌱</div>
+                <div class="card-info"><div class="card-title">自然科學</div><div class="card-sub">點我開始讀題</div></div>
+            </a>
+            <a href="g3s.html" class="menu-card g3-card">
+                <div class="card-icon g3-bg">🗺️</div>
+                <div class="card-info"><div class="card-title">社會領域</div><div class="card-sub">點我開始讀題</div></div>
+            </a>
+        </div>
 
-    <a href="#" class="menu-card" style="opacity:0.5;"><div class="card-header g3">🦋</div><div class="card-body"><div class="card-title">三年級 考卷</div></div></a>
-    <a href="#" class="menu-card" style="opacity:0.5;"><div class="card-header g5">📘</div><div class="card-body"><div class="card-title">五年級 考卷</div></div></a>
-    <a href="#" class="menu-card" style="opacity:0.5;"><div class="card-header g6">🔭</div><div class="card-body"><div class="card-title">六年級 考卷</div></div></a>
-</div>
+        <!-- 五年級區 -->
+        <div class="grade-section">
+            <div class="grade-label">【 五年級 】</div>
+            <a href="g5n.html" class="menu-card g5-card">
+                <div class="card-icon g5-bg">🔬</div>
+                <div class="card-info"><div class="card-title">自然科學</div><div class="card-sub">點我開始讀題</div></div>
+            </a>
+            <a href="g5s.html" class="menu-card g5-card">
+                <div class="card-icon g5-bg">🏛️</div>
+                <div class="card-info"><div class="card-title">社會領域</div><div class="card-sub">點我開始讀題</div></div>
+            </a>
+        </div>
 
-<div id="hall-qr">
-    <h3 style="margin:0 0 10px 0; color:#004d40; font-size:16px;">📱 掃描進入本考卷大廳</h3>
-    <div id="qrcode"></div>
-    <p style="font-size:12px; color:#666; margin-top:10px; text-align:center;">學生掃描後即可自行選擇年級</p>
-</div>
+        <!-- 六年級區 -->
+        <div class="grade-section">
+            <div class="grade-label">【 六年級 】</div>
+            <a href="g6n.html" class="menu-card g6-card">
+                <div class="card-icon g6-bg">🔭</div>
+                <div class="card-info"><div class="card-title">自然科學</div><div class="card-sub">點我開始讀題</div></div>
+            </a>
+            <a href="g6s.html" class="menu-card g6-card">
+                <div class="card-icon g6-bg">🌍</div>
+                <div class="card-info"><div class="card-title">社會領域</div><div class="card-sub">點我開始讀題</div></div>
+            </a>
+        </div>
 
-<script>
-    function generateHallQR() {
-        // 自動抓取當前大廳網址
-        const currentUrl = window.location.href;
-        new QRCode(document.getElementById("qrcode"), {
-            text: currentUrl,
-            width: 180,
-            height: 180,
-            colorDark : "#000000",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.H
-        });
-    }
-</script>
+        <!-- 測試區 -->
+        <div style="grid-column: 1 / -1; margin-top: 10px;">
+            <a href="test/裕文資源班_學生考卷.html" class="menu-card" style="border-bottom: 6px solid #78909c;">
+                <div class="card-icon" style="background:#cfd8dc">🧪</div>
+                <div class="card-info"><div class="card-title">功能測試檔</div><div class="card-sub">練習用的 PDF 報讀測試</div></div>
+            </a>
+        </div>
+    </div>
 
+    <!-- 自動 QR Code 區 -->
+    <div id="qr-footer">
+        <div class="qr-tip">📱 學生掃我進入大廳 📱</div>
+        <div id="qrcode"></div>
+        <p style="font-size: 14px; color: #777;">( 學生掃描一次，即可選考所有科目 )</p>
+    </div>
+
+    <script>
+        function initApp() {
+            // 自動捉取目前網址生成 QR Code
+            const currentUrl = window.location.href;
+            new QRCode(document.getElementById("qrcode"), {
+                text: currentUrl,
+                width: 200,
+                height: 200,
+                colorDark : "#004d40",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+        }
+    </script>
 </body>
 </html>

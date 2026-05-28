@@ -2,69 +2,154 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>裕文資源班 - 語音報讀大廳</title>
+    <title>裕文資源班 - 互動考卷製作工具 (Word 優化版)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { margin: 0; background: #f4f4f4; font-family: "Microsoft JhengHei", sans-serif; display: flex; flex-direction: column; align-items: center; padding-bottom: 50px; }
-        #header { width: 100%; height: 80px; background: #004d40; color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,0.3); font-size: 24px; font-weight: bold; margin-bottom: 20px; }
-        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 1000px; padding: 20px; }
-        .menu-card { width: 220px; background: white; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; text-decoration: none; transition: 0.3s; display: flex; flex-direction: column; }
-        .menu-card:hover { transform: translateY(-5px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
-        .card-header { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 40px; }
-        .card-body { padding: 15px; text-align: center; }
-        .card-title { font-size: 18px; color: #333; font-weight: bold; }
-        
-        /* QR Code 區域樣式 */
-        #qr-generator { background: white; width: 90%; max-width: 600px; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 30px; display: flex; flex-direction: column; align-items: center; border: 2px dashed #004d40; }
-        #qr-input { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
-        #qr-btn { background: #004d40; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        #qrcode { margin-top: 20px; padding: 10px; background: white; border: 1px solid #eee; }
-        
-        /* 標籤配色 */
-        .g3 { background-color: #ffca28; } .g5 { background-color: #42a5f5; } .g6 { background-color: #66bb6a; } .test-card { background-color: #78909c; }
+        body { font-family: sans-serif; margin: 0; background: #eee; display: flex; flex-direction: column; align-items: center; padding-top: 60px; }
+        #toolbar { position: fixed; top: 0; width: 100%; height: 60px; background: #004d40; color: white; display: flex; align-items: center; justify-content: center; z-index: 1000; gap: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .page-container { position: relative; margin: 20px; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.2); cursor: crosshair; }
+        canvas { display: block; width: 1000px; }
+        .selection-box { position: absolute; border: 2px solid #ff4444; background: rgba(255, 68, 68, 0.2); pointer-events: auto; }
+        button { padding: 8px 12px; cursor: pointer; border-radius: 4px; border: none; font-weight: bold; }
+        #export-btn { background: #ffc107; color: #333; }
+        #qr-section { background: white; padding: 20px; border-radius: 10px; display: none; flex-direction: column; align-items: center; border: 3px solid #004d40; position: fixed; top: 20%; z-index: 2000; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+        input[type="text"] { padding: 8px; width: 300px; border: 1px solid #ccc; border-radius: 4px; }
     </style>
 </head>
 <body>
+    <div id="toolbar">
+        <strong>裕文資源班工具</strong>
+        <input type="file" id="file-input" accept="application/pdf">
+        <button id="export-btn">✅ 1. 下載學生版</button>
+        <span style="margin-left:10px;">2. 生成 QR：</span>
+        <input type="text" id="qr-input" placeholder="貼上雲端連結生成 QR">
+        <button onclick="generateQR()" style="background:#00796b; color:white;">生成 QR</button>
+    </div>
+    <div id="qr-section"><div id="qrcode"></div><button onclick="document.getElementById('qr-section').style.display='none'" style="margin-top:10px;">關閉</button></div>
+    <div id="viewer"></div>
 
-<div id="header">🏫 裕文國小資源班 - 語音報讀考卷大廳</div>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+        let pagesData = [], currentBoxes = [];
 
-<div class="container">
-    <a href="test/裕文資源班_學生考卷.html" class="menu-card">
-        <div class="card-header test-card">🧪</div>
-        <div class="card-body"><div class="card-title">報讀測試檔</div></div>
-    </a>
+        document.getElementById('file-input').onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const arrayBuffer = await file.arrayBuffer();
+            const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+            const viewer = document.getElementById('viewer');
+            viewer.innerHTML = ''; pagesData = []; currentBoxes = [];
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                const viewport = page.getViewport({ scale: 2 });
+                const container = document.createElement('div');
+                container.className = 'page-container';
+                const canvas = document.createElement('canvas');
+                canvas.height = viewport.height; canvas.width = viewport.width;
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                const textContent = await page.getTextContent();
+                const words = textContent.items.map(item => ({
+                    text: item.str, 
+                    x: (item.transform[4] / page.view[2]) * 100, 
+                    y: (1 - (item.transform[5] / page.view[3])) * 100,
+                    w: (item.width / page.view[2]) * 100
+                }));
+                container.appendChild(canvas);
+                pagesData.push({ img: canvas.toDataURL('image/png'), words: words });
+                setupSelection(container, i - 1);
+                viewer.appendChild(container);
+            }
+        };
 
-    <a href="#" class="menu-card" style="opacity:0.5;"><div class="card-header g3">🦋</div><div class="card-body"><div class="card-title">三年級 考卷</div></div></a>
-    <a href="#" class="menu-card" style="opacity:0.5;"><div class="card-header g5">📘</div><div class="card-body"><div class="card-title">五年級 考卷</div></div></a>
-    <a href="#" class="menu-card" style="opacity:0.5;"><div class="card-header g6">🔭</div><div class="card-body"><div class="card-title">六年級 考卷</div></div></a>
-</div>
+        function setupSelection(container, pIdx) {
+            container.onmousedown = (e) => {
+                if (e.target.className === 'selection-box') return;
+                const rect = container.getBoundingClientRect();
+                const startX = e.clientX - rect.left, startY = e.clientY - rect.top;
+                const box = document.createElement('div');
+                box.className = 'selection-box';
+                container.appendChild(box);
+                
+                const onMove = (me) => {
+                    const curX = me.clientX - rect.left, curY = me.clientY - rect.top;
+                    box.style.left = Math.min(startX, curX) + 'px'; box.style.top = Math.min(startY, curY) + 'px';
+                    box.style.width = Math.abs(curX - startX) + 'px'; box.style.height = Math.abs(curY - startY) + 'px';
+                };
 
-<div id="qr-generator">
-    <h3 style="margin:0; color:#004d40;">📱 快速生成學生掃描碼</h3>
-    <p style="font-size:14px; color:#666;">請在下方貼上考卷的雲端連結：</p>
-    <input type="text" id="qr-input" placeholder="https://drive.google.com/...">
-    <button id="qr-btn" onclick="generateQR()">生成 QR Code讓學生掃描</button>
-    <div id="qrcode"></div>
-    <p style="font-size:12px; color:#999; margin-top:10px;">(提示：請確認雲端權限已開啟「知道連結的人均可查看」)</p>
-</div>
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+                    const l = (parseFloat(box.style.left) / rect.width) * 100;
+                    const t = (parseFloat(box.style.top) / rect.height) * 100;
+                    const r = ((parseFloat(box.style.left) + parseFloat(box.style.width)) / rect.width) * 100;
+                    const b = ((parseFloat(box.style.top) + parseFloat(box.style.height)) / rect.height) * 100;
 
-<script>
-    function generateQR() {
-        const url = document.getElementById('qr-input').value;
-        if (!url) return alert("請先貼上連結！");
-        const qrContainer = document.getElementById('qrcode');
-        qrContainer.innerHTML = ""; // 清除舊的
-        new QRCode(qrContainer, {
-            text: url,
-            width: 200,
-            height: 200,
-            colorDark : "#000000",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.H
-        });
-    }
-</script>
+                    // ✨ 強力抓取：確保跨度內的所有字元都被納入
+                    let selectedWords = pagesData[pIdx].words.filter(w => 
+                        ((w.x >= (l-0.5) && w.x <= (r+0.5)) || (w.x + w.w >= (l-0.5) && w.x + w.w <= (r+0.5))) && 
+                        (w.y >= (t-0.5) && w.y <= (b+0.5))
+                    );
 
+                    selectedWords.sort((a, b) => {
+                        if (Math.abs(a.y - b.y) < 0.8) return a.x - b.x;
+                        return a.y - b.y;
+                    });
+
+                    // ✨ 強力黏合：移除所有導致停頓的空白與符號
+                    const text = selectedWords.map(w => w.text).join("").replace(/[\n\r\t]/g, "").replace(/\s+/g, "");
+
+                    if (text.trim()) {
+                        currentBoxes.push({ pIdx, l, t, w: r-l, h: b-t, text: text.trim() });
+                        speak(text.trim());
+                    } else { container.removeChild(box); }
+                };
+                document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+            };
+        }
+
+        function speak(t) {
+            window.speechSynthesis.cancel();
+            // ✨ 語音優化：處理「○」為「畫圈」，並優化題號讀法
+            let cleanText = t.replace(/○/g, '畫圈')
+                             .replace(/(\d+)\./g, '第$1題')
+                             .replace(/(\d+)、/g, '第$1題')
+                             .replace(/\(/g, '。括號')
+                             .replace(/\)/g, '。')
+                             .replace(/__/g, '底線');
+
+            const m = new SpeechSynthesisUtterance(cleanText);
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(v => v.lang === 'zh-TW' && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Premium')));
+            if (preferredVoice) m.voice = preferredVoice;
+            m.lang = "zh-TW"; m.rate = 0.75; m.pitch = 1.0;
+            window.speechSynthesis.speak(m);
+        }
+
+        document.getElementById('export-btn').onclick = () => {
+            if (currentBoxes.length === 0) return alert("請先框選題目！");
+            let pagesHtml = "";
+            pagesData.forEach((p, i) => {
+                let triggers = currentBoxes.filter(box => box.pIdx === i)
+                    .map(box => `<div class="speech-trigger" style="left:${box.l}%; top:${box.t}%; width:${box.w}%; height:${box.h}%;" onclick="speak('${box.text.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')"></div>`)
+                    .join("");
+                pagesHtml += `<div class="page-container"><img src="${p.img}" style="width:100%;">${triggers}</div>`;
+            });
+            const finalDoc = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{margin:0;background:#333;display:flex;flex-direction:column;align-items:center;padding-top:75px;}#stop-btn{position:fixed;top:0;width:100%;height:65px;background:#004d40;color:white;font-size:24px;font-weight:bold;border:none;z-index:1000;}.page-container{position:relative;margin-bottom:20px;background:white;width:98vw;max-width:1000px;}.speech-trigger{position:absolute;background:rgba(255,255,0,0.01);cursor:pointer;}.speech-trigger:active{background:rgba(255,255,0,0.4);border:4px solid #ffc107;}</style></head><body><button id="stop-btn" onclick="window.speechSynthesis.cancel()">🛑 裕文資源班-停止念書</button>${pagesHtml}<script>function speak(t){window.speechSynthesis.cancel();const cleanText = t.replace(/○/g, '畫圈').replace(/(\\d+)\\./g, '第$1題').replace(/(\\d+)、/g, '第$1題').replace(/\\(/g, '。括號').replace(/\\)/g, '。').replace(/__/g, '底線');const m=new SpeechSynthesisUtterance(cleanText);const voices=window.speechSynthesis.getVoices();const preferredVoice=voices.find(v=>v.lang==='zh-TW'&&(v.name.includes('Google')||v.name.includes('Natural')||v.name.includes('Premium')));if(preferredVoice)m.voice=preferredVoice;m.lang="zh-TW";m.rate=0.75;m.pitch=1.0;window.speechSynthesis.speak(m);}<\/script></body></html>`;
+            const blob = new Blob([finalDoc], { type: 'text/html' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = "裕文資源班_學生考卷.html";
+            a.click();
+        };
+
+        function generateQR() {
+            const url = document.getElementById('qr-input').value;
+            if (!url) return alert("請先貼上連結！");
+            document.getElementById('qrcode').innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), { text: url, width: 200, height: 200 });
+            document.getElementById('qr-section').style.display = 'flex';
+        }
+        window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    </script>
 </body>
 </html>

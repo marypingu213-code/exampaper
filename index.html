@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>裕文國小資源班 - 報讀大廳</title>
+    <title>裕文國小資源班 - 考卷語音報讀工具</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
             --primary: #004d40;
+            --secondary: #00796b;
             --bg: #f0f4f8;
-            --g3-color: #ffca28;
-            --g5-color: #42a5f5;
-            --g6-color: #66bb6a;
+            --accent: #ffc107;
         }
 
         body {
             margin: 0;
             background-color: var(--bg);
-            font-family: "Microsoft JhengHei", sans-serif;
+            font-family: "Microsoft JhengHei", "Heiti TC", sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -28,146 +27,193 @@
             width: 100%;
             background: var(--primary);
             color: white;
-            padding: 25px 0;
+            padding: 20px 0;
             text-align: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            font-size: 28px;
+            font-size: 26px;
             font-weight: bold;
-            border-bottom: 6px solid #ffc107;
+            border-bottom: 6px solid var(--accent);
         }
 
-        .welcome-text {
-            margin: 20px 0;
-            font-size: 20px;
-            color: #37474f;
-            background: white;
-            padding: 10px 30px;
-            border-radius: 50px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px;
+        .main-container {
             width: 90%;
-            max-width: 1000px;
-            padding: 20px;
-        }
-
-        .grade-section {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            background: rgba(255,255,255,0.7);
-            padding: 15px;
+            max-width: 800px;
+            background: white;
+            margin-top: 30px;
+            padding: 25px;
             border-radius: 20px;
-            border: 2px solid #ddd;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            text-align: center;
         }
 
-        .grade-label {
+        .instruction {
+            font-size: 18px;
+            color: #37474f;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        textarea {
+            width: 95%;
+            height: 180px;
+            padding: 15px;
+            font-size: 20px;
+            border: 2px solid #b2dfdb;
+            border-radius: 12px;
+            resize: none;
+            font-family: inherit;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--secondary);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .control-btn {
             font-size: 22px;
             font-weight: bold;
-            text-align: center;
-            color: #444;
-            margin-bottom: 5px;
+            padding: 15px 35px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
         }
 
-        .menu-card {
+        .play-btn {
+            background-color: var(--secondary);
+            color: white;
+        }
+
+        .play-btn:active { transform: scale(0.95); background-color: var(--primary); }
+
+        .stop-btn {
+            background-color: #d32f2f;
+            color: white;
+        }
+
+        .stop-btn:active { transform: scale(0.95); background-color: #c62828; }
+
+        .clear-btn {
+            background-color: #78909c;
+            color: white;
+        }
+        .clear-btn:active { transform: scale(0.95); background-color: #607d8b; }
+
+        /* QR Code 區塊 */
+        #qr-container {
+            margin-top: 35px;
             background: white;
-            border-radius: 18px;
-            box-shadow: 0 6px 15px rgba(0,0,0,0.1);
-            text-decoration: none;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
             padding: 20px;
-            border-bottom: 6px solid transparent;
-        }
-
-        .menu-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-
-        .card-icon { font-size: 40px; margin-right: 15px; }
-        .card-title { font-size: 20px; color: #2c3e50; font-weight: bold; }
-
-        .g3-card { border-color: var(--g3-color); }
-        .g5-card { border-color: var(--g5-color); }
-        .g6-card { border-color: var(--g6-color); }
-
-        #qr-footer {
-            margin-top: 40px;
-            background: white;
-            padding: 30px;
-            border-radius: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-radius: 20px;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.08);
             display: flex;
             flex-direction: column;
             align-items: center;
-            border: 4px dashed var(--primary);
+            border: 3px dashed var(--secondary);
         }
 
-        #qrcode { padding: 15px; background: white; }
+        #qrcode {
+            padding: 10px;
+            background: white;
+        }
+
+        .qr-text {
+            margin-top: 10px;
+            font-weight: bold;
+            color: var(--primary);
+            font-size: 16px;
+        }
     </style>
 </head>
 <body onload="initApp()">
 
-    <div id="header">🏫 裕文國小資源班 - 考卷入口大廳</div>
-    
-    <div class="welcome-text">小朋友，點一張你的考卷開始吧！ ✨</div>
+    <div id="header">🏫 裕文國小資源班 - 語音報讀工具網頁</div>
 
-    <div class="container">
-        <!-- 三年級：先社會，後自然 -->
-        <div class="grade-section">
-            <div class="grade-label">【 三年級 】</div>
-            <a href="#" id="g3s-link" class="menu-card g3-card"><div class="card-icon">🗺️</div><div class="card-title">自然科學</div></a>
-            <a href="#" id="g3n-link" class="menu-card g3-card"><div class="card-icon">🌱</div><div class="card-title">社會領域</div></a>
-        </div>
-
-        <!-- 五年級：先社會，後自然 -->
-        <div class="grade-section">
-            <div class="grade-label">【 五年級 】</div>
-            <a href="#" id="g5s-link" class="menu-card g5-card"><div class="card-icon">🏛️</div><div class="card-title">自然科學</div></a>
-            <a href="#" id="g5n-link" class="menu-card g5-card"><div class="card-icon">🔬</div><div class="card-title">社會領域</div></a>
-        </div>
-
-        <!-- 六年級：先社會，後自然 -->
-        <div class="grade-section">
-            <div class="grade-label">【 六年級 】</div>
-            <a href="#" id="g6s-link" class="menu-card g6-card"><div class="card-icon">🌍</div><div class="card-title">自然科學</div></a>
-            <a href="#" id="g6n-link" class="menu-card g6-card"><div class="card-icon">🔭</div><div class="card-title">社會領域</div></a>
+    <div class="main-container">
+        <div class="instruction">📝 請在下方框框內貼上考卷題目文字：</div>
+        
+        <textarea id="text-input" placeholder="例如：一、是非題 (對的畫○，錯的打Ｘ)&#10;1. 交通工具與通訊技術的快速發展..."></textarea>
+        
+        <div class="btn-group">
+            <button class="control-btn play-btn" onclick="startSpeaking()">🗣️ 開始唸書</button>
+            <button class="control-btn stop-btn" onclick="stopSpeaking()">🛑 停止</button>
+            <button class="control-btn clear-btn" onclick="clearText()">🗑️ 清空</button>
         </div>
     </div>
 
-    <div id="qr-footer">
-        <div style="margin-bottom:10px; font-weight:bold; color:var(--primary);">📱 學生掃我進入大廳 📱</div>
+    <div id="qr-container">
+        <div class="qr-text">📱 平板掃我直接開啟本頁 📱</div>
         <div id="qrcode"></div>
-        <p style="font-size: 14px; color: #777;">( 掃描一次，即可選考所有科目 )</p>
     </div>
 
     <script>
-        /* 🛠️ Netlify 公開網址設定 */
-        const netlifyBaseUrl = "https://lively-blini-f8f299.netlify.app/"; 
-
         function initApp() {
-            // 設定正確的連結路徑
-            document.getElementById('g3n-link').href = netlifyBaseUrl + "g3n.html";
-            document.getElementById('g3s-link').href = netlifyBaseUrl + "g3s.html";
-            document.getElementById('g5n-link').href = netlifyBaseUrl + "g5n.html";
-            document.getElementById('g5s-link').href = netlifyBaseUrl + "g5s.html";
-            document.getElementById('g6n-link').href = netlifyBaseUrl + "g6n.html";
-            document.getElementById('g6s-link').href = netlifyBaseUrl + "g6s.html";
-
-            // 生成大廳 QR Code (目前網頁的網址)
+            // 自動捉取目前 GitHub 網址生成 QR Code
             const currentUrl = window.location.href;
             new QRCode(document.getElementById("qrcode"), {
                 text: currentUrl,
-                width: 180,
-                height: 180,
+                width: 160,
+                height: 160,
                 colorDark : "#004d40",
                 colorLight : "#ffffff",
                 correctLevel : QRCode.CorrectLevel.H
             });
         }
+
+        function startSpeaking() {
+            window.speechSynthesis.cancel(); // 播放前先停止前一段聲音
+            
+            const rawText = document.getElementById("text-input").value;
+            if (!rawText.trim()) {
+                alert("框框裡面沒有文字喔！請先貼上題目。");
+                return;
+            }
+
+            // 針對資源班學生的語音唸法優化
+            let cleanText = rawText
+                .replace(/○/g, '畫圈')
+                .replace(/Ｘ/g, '打叉')
+                .replace(/X/g, '打叉')
+                .replace(/x/g, '打叉')
+                .replace(/V/g, '打勾')
+                .replace(/v/g, '打勾')
+                .replace(/(\d+)\./g, '第$1題。')
+                .replace(/（\s*）/g, '。括號。')
+                .replace(/\(\s*\)/g, '。括號。');
+
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = "zh-TW";
+            utterance.rate = 0.75; // 設定較慢的語速方便學生聽題
+
+            // 尋找台灣最自然的語音來源
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(v => v.lang === 'zh-TW' && (v.name.includes('Google') || v.name.includes('Natural')));
+            if (preferredVoice) utterance.voice = preferredVoice;
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function stopSpeaking() {
+            window.speechSynthesis.cancel();
+        }
+
+        function clearText() {
+            window.speechSynthesis.cancel();
+            document.getElementById("text-input").value = "";
+        }
+
+        // 修正部分瀏覽器發音庫載入延遲的問題
+        window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
     </script>
+
 </body>
 </html>

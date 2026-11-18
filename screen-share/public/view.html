@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=6, user-scalable=yes">
+<meta name="theme-color" content="#000000">
+<title>老師的畫面</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; }
+  #screen { width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; display: none; -webkit-user-select: none; user-select: none; }
+  #msg { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 22px; padding: 24px; line-height: 1.6; }
+  #msg small { font-size: 15px; color: #aaa; }
+  .spinner { width: 44px; height: 44px; border: 4px solid #444; border-top-color: #4db6ac; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 18px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #badge { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(230,81,0,.9); padding: 6px 16px; border-radius: 20px; font-size: 15px; display: none; pointer-events: none; }
+  #fsBtn { position: fixed; right: 12px; bottom: 12px; background: rgba(255,255,255,.18); color: #fff; border: none; border-radius: 10px; padding: 10px 14px; font-size: 15px; display: none; }
+  #hint { position: fixed; bottom: 12px; left: 12px; font-size: 13px; color: rgba(255,255,255,.55); pointer-events: none; transition: opacity 1s; }
+</style>
+</head>
+<body>
+<img id="screen" alt="老師的畫面">
+<div id="msg"><div class="spinner"></div>連線中…</div>
+<div id="badge">⏸ 老師暫停中</div>
+<div id="hint">👆 兩指可以放大看細節</div>
+<button id="fsBtn">⛶ 全螢幕</button>
+
+<script>
+const img = document.getElementById('screen');
+const msg = document.getElementById('msg');
+const badge = document.getElementById('badge');
+let currentUrl = null, retry = 0, hasFrame = false, live = false;
+
+function show(html, spin) {
+  msg.innerHTML = (spin ? '<div class="spinner"></div>' : '') + html;
+  msg.style.display = 'flex';
+}
+function refresh() {
+  if (live && hasFrame) { msg.style.display = 'none'; img.style.display = 'block'; }
+  else if (!live) { img.style.display = 'none'; hasFrame = false; show('⌛ 等待老師分享畫面…<br><small>保持這個頁面開著就好</small>', true); }
+}
+
+function connect() {
+  const ws = new WebSocket(`ws://${location.host}/ws?role=viewer`);
+  ws.binaryType = 'blob';
+  ws.onopen = () => { retry = 0; };
+  ws.onmessage = (e) => {
+    if (typeof e.data === 'string') {
+      const m = JSON.parse(e.data);
+      if (m.type === 'state') {
+        live = m.live;
+        badge.style.display = m.live && m.paused ? 'block' : 'none';
+        refresh();
+      }
+      return;
+    }
+    const url = URL.createObjectURL(e.data);
+    img.onload = () => { if (currentUrl && currentUrl !== url) URL.revokeObjectURL(currentUrl); currentUrl = url; };
+    img.src = url;
+    hasFrame = true;
+    refresh();
+  };
+  ws.onclose = () => {
+    hasFrame = false; live = false;
+    img.style.display = 'none';
+    badge.style.display = 'none';
+    show('📶 連線中斷，正在重新連線…<br><small>請確認手機連的是教室的 Wi-Fi</small>', true);
+    setTimeout(connect, Math.min(1000 * 2 ** retry++, 8000));
+  };
+}
+
+// 手機切回這個頁面時，若連線已斷就立刻重連
+document.addEventListener('visibilitychange', () => { if (!document.hidden) retry = 0; });
+
+const fsBtn = document.getElementById('fsBtn');
+if (document.documentElement.requestFullscreen) {
+  fsBtn.style.display = 'block';
+  fsBtn.onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {});
+}
+setTimeout(() => { document.getElementById('hint').style.opacity = 0; }, 6000);
+
+connect();
+</script>
+</body>
+</html>

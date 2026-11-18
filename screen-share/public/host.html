@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>教室畫面同步 - 老師控制台</title>
+<style>
+  :root { --main: #004d40; --accent: #ffc107; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; background: #eef2f1; color: #222; }
+  header { background: var(--main); color: #fff; padding: 14px 24px; font-size: 22px; font-weight: bold; display: flex; align-items: center; gap: 16px; }
+  header .count { margin-left: auto; background: rgba(255,255,255,.15); padding: 6px 14px; border-radius: 20px; font-size: 18px; }
+  main { display: grid; grid-template-columns: 380px 1fr; gap: 20px; padding: 20px; max-width: 1300px; margin: 0 auto; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  h2 { margin: 0 0 12px; font-size: 18px; color: var(--main); }
+  #qr { width: 100%; aspect-ratio: 1; background: #fff; border: 2px solid #ddd; border-radius: 8px; padding: 8px; }
+  #qr svg { width: 100%; height: 100%; display: block; }
+  .url { font-family: Consolas, monospace; font-size: 18px; text-align: center; margin: 10px 0; word-break: break-all; font-weight: bold; }
+  select, button { font: inherit; }
+  select { width: 100%; padding: 6px; }
+  button { padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 16px; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .primary { background: var(--main); color: #fff; }
+  .warn { background: var(--accent); color: #333; }
+  .danger { background: #c62828; color: #fff; }
+  .ghost { background: #e0e0e0; color: #333; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  label { font-size: 15px; }
+  #preview { width: 100%; background: #222; border-radius: 8px; aspect-ratio: 16/9; object-fit: contain; display: block; }
+  .status { font-size: 18px; font-weight: bold; margin: 8px 0 14px; }
+  .status.live { color: #2e7d32; } .status.paused { color: #e65100; } .status.off { color: #777; }
+  .hint { color: #666; font-size: 14px; line-height: 1.6; }
+  .stats { font-size: 13px; color: #888; margin-top: 8px; }
+  /* 全螢幕 QR（給大電視顯示） */
+  #bigqr { position: fixed; inset: 0; background: #fff; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10; cursor: pointer; }
+  #bigqr.show { display: flex; }
+  #bigqr .qrbox { width: min(75vh, 80vw); aspect-ratio: 1; }
+  #bigqr .qrbox svg { width: 100%; height: 100%; }
+  #bigqr .title { font-size: 5vh; font-weight: bold; color: var(--main); margin-bottom: 2vh; }
+  #bigqr .url { font-size: 4vh; }
+  #bigqr .count { font-size: 3vh; color: #555; }
+</style>
+</head>
+<body>
+<header>
+  📺 教室畫面同步
+  <span class="count">👥 已連線學生：<b id="count">0</b></span>
+</header>
+
+<main>
+  <section class="card">
+    <h2>① 學生掃描加入</h2>
+    <div id="qr"></div>
+    <div class="url" id="url">…</div>
+    <div class="row" id="addrRow" style="display:none">
+      <label style="width:100%">網路介面（掃不到時換一個試試）：</label>
+      <select id="addr"></select>
+    </div>
+    <button class="warn" id="bigBtn" style="width:100%">🔍 在大螢幕放大顯示 QR Code</button>
+    <p class="hint">學生的手機必須和這台電腦連在<b>同一個 Wi-Fi</b>。</p>
+  </section>
+
+  <section class="card">
+    <h2>② 分享畫面</h2>
+    <div class="status off" id="status">⚪ 尚未分享</div>
+    <div class="row">
+      <button class="primary" id="startBtn">▶ 開始分享畫面</button>
+      <button class="warn" id="pauseBtn" disabled>⏸ 暫停（學生畫面凍結）</button>
+      <button class="danger" id="stopBtn" disabled>■ 停止</button>
+    </div>
+    <div class="row">
+      <label>畫質：
+        <select id="res" style="width:auto">
+          <option value="1280">標準 (1280)</option>
+          <option value="1920" selected>清晰 (1920)</option>
+          <option value="2560">超清晰 (2560)</option>
+        </select>
+      </label>
+      <label>更新速度：
+        <select id="fps" style="width:auto">
+          <option value="2">慢（省網路）</option>
+          <option value="5" selected>一般</option>
+          <option value="10">流暢</option>
+          <option value="15">很流暢（影片）</option>
+        </select>
+      </label>
+    </div>
+    <video id="preview" muted playsinline autoplay></video>
+    <div class="stats" id="stats"></div>
+    <p class="hint">
+      按「開始分享畫面」後，選擇要分享的<b>整個螢幕</b>（例如接大電視的螢幕）或某個<b>視窗</b>（例如 PowerPoint）。<br>
+      這個頁面可以縮小或切到背景，分享會持續進行；要結束請按「停止」。<br>
+      投影片或考卷畫面沒變動時會自動降低傳輸量，學生多也不容易卡。
+    </p>
+  </section>
+</main>
+
+<div id="bigqr" title="點一下關閉">
+  <div class="title">📱 用手機掃描，同步看老師的畫面</div>
+  <div class="qrbox" id="bigqrBox"></div>
+  <div class="url" id="bigUrl"></div>
+  <div class="count">已連線：<b id="bigCount">0</b> 人　（點一下關閉）</div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let ws = null, stream = null, track = null;
+let live = false, paused = false;
+let viewerUrl = '';
+
+// ---------- QR Code ----------
+async function loadInfo() {
+  const info = await (await fetch('/api/info')).json();
+  const sel = $('addr');
+  sel.innerHTML = '';
+  for (const a of info.addresses) {
+    const o = document.createElement('option');
+    o.value = a.url; o.textContent = `${a.address}  (${a.name})`;
+    sel.appendChild(o);
+  }
+  $('addrRow').style.display = info.addresses.length > 1 ? '' : 'none';
+  if (!info.addresses.length) {
+    $('url').textContent = '⚠ 找不到網路，請先連上 Wi-Fi 後重新整理';
+    return;
+  }
+  setUrl(info.addresses[0].url);
+}
+async function setUrl(url) {
+  viewerUrl = url;
+  $('url').textContent = $('bigUrl').textContent = url;
+  const svg = await (await fetch('/api/qr.svg?url=' + encodeURIComponent(url))).text();
+  $('qr').innerHTML = $('bigqrBox').innerHTML = svg;
+}
+$('addr').onchange = (e) => setUrl(e.target.value);
+$('bigBtn').onclick = () => { $('bigqr').classList.add('show'); document.documentElement.requestFullscreen?.().catch(() => {}); };
+$('bigqr').onclick = () => { $('bigqr').classList.remove('show'); if (document.fullscreenElement) document.exitFullscreen(); };
+
+// ---------- WebSocket ----------
+function connect() {
+  ws = new WebSocket(`ws://${location.host}/ws?role=host`);
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = sendState;
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'viewers') $('count').textContent = $('bigCount').textContent = msg.count;
+  };
+  ws.onclose = (e) => { if (e.code !== 4000) setTimeout(connect, 1500); };
+}
+function sendState() {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'state', live, paused }));
+}
+
+// ---------- 擷取畫面 ----------
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d');
+const thumb = document.createElement('canvas');
+thumb.width = 160; thumb.height = 90;
+const tctx = thumb.getContext('2d', { willReadFrequently: true });
+let prevThumb = null, lastSent = 0, busy = false, forceNext = true;
+let sentFrames = 0, sentBytes = 0, statT = performance.now();
+
+function changed() {
+  tctx.drawImage(canvas, 0, 0, thumb.width, thumb.height);
+  const d = tctx.getImageData(0, 0, thumb.width, thumb.height).data;
+  let diff = false;
+  if (prevThumb) {
+    for (let i = 0; i < d.length; i += 4) {
+      if (Math.abs(d[i] - prevThumb[i]) > 6 || Math.abs(d[i + 1] - prevThumb[i + 1]) > 6 || Math.abs(d[i + 2] - prevThumb[i + 2]) > 6) { diff = true; break; }
+    }
+  } else diff = true;
+  prevThumb = d;
+  return diff;
+}
+
+// 處理一個畫面來源（VideoFrame 或 <video>）
+async function handleSource(src, w, h) {
+  const now = performance.now();
+  const interval = 1000 / Number($('fps').value);
+  if (!live || paused || busy || now - lastSent < interval) return;
+  if (!ws || ws.readyState !== 1 || ws.bufferedAmount > 2_000_000) return;
+  if (!w || !h) return;
+
+  const maxW = Number($('res').value);
+  const scale = Math.min(1, maxW / w);
+  const cw = Math.round(w * scale), ch = Math.round(h * scale);
+  if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; forceNext = true; }
+  ctx.drawImage(src, 0, 0, cw, ch);
+
+  // 畫面沒變就不送（每 2 秒至少送一次）
+  const isChanged = changed();
+  if (!isChanged && !forceNext && now - lastSent < 2000) return;
+  forceNext = false;
+
+  busy = true;
+  lastSent = now;
+  const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.8));
+  busy = false;
+  if (blob && live && !paused && ws.readyState === 1) {
+    ws.send(await blob.arrayBuffer());
+    sentFrames++; sentBytes += blob.size;
+  }
+}
+
+// 方法 A（Chrome / Edge）：MediaStreamTrackProcessor，切到背景也不會變慢
+async function loopProcessor() {
+  const reader = new MediaStreamTrackProcessor({ track }).readable.getReader();
+  while (live) {
+    const { value: frame, done } = await reader.read();
+    if (done) break;
+    try { await handleSource(frame, frame.displayWidth, frame.displayHeight); }
+    finally { frame.close(); }
+  }
+  reader.cancel().catch(() => {});
+}
+
+// 方法 B（其他瀏覽器）：用 Worker 計時，避免背景分頁的計時器被節流
+let timerWorker = null;
+function loopWorker() {
+  const v = $('preview');
+  const code = 'let t;onmessage=e=>{clearInterval(t);if(e.data>0)t=setInterval(()=>postMessage(0),e.data)}';
+  timerWorker = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+  timerWorker.onmessage = () => handleSource(v, v.videoWidth, v.videoHeight);
+  timerWorker.postMessage(66);
+}
+
+async function start() {
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, cursor: 'always' }, audio: false });
+  } catch (err) {
+    if (err.name !== 'NotAllowedError') alert('無法擷取畫面：' + err.message);
+    return;
+  }
+  track = stream.getVideoTracks()[0];
+  try { track.contentHint = 'detail'; } catch {}
+  track.onended = stop;
+  $('preview').srcObject = stream;
+  live = true; paused = false; prevThumb = null; forceNext = true;
+  sendState(); updateUI();
+  if ('MediaStreamTrackProcessor' in window) loopProcessor(); else loopWorker();
+}
+
+function stop() {
+  live = false; paused = false;
+  if (timerWorker) { timerWorker.terminate(); timerWorker = null; }
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  stream = null; track = null;
+  $('preview').srcObject = null;
+  sendState(); updateUI();
+}
+
+function togglePause() {
+  paused = !paused;
+  forceNext = true;
+  sendState(); updateUI();
+}
+
+function updateUI() {
+  $('startBtn').disabled = live;
+  $('pauseBtn').disabled = !live;
+  $('stopBtn').disabled = !live;
+  $('pauseBtn').textContent = paused ? '▶ 繼續' : '⏸ 暫停（學生畫面凍結）';
+  const s = $('status');
+  if (!live) { s.className = 'status off'; s.textContent = '⚪ 尚未分享'; }
+  else if (paused) { s.className = 'status paused'; s.textContent = '🟠 已暫停：學生看到的是暫停前的畫面'; }
+  else { s.className = 'status live'; s.textContent = '🟢 分享中'; }
+}
+
+setInterval(() => {
+  const t = performance.now(), sec = (t - statT) / 1000;
+  $('stats').textContent = live ? `每秒 ${(sentFrames / sec).toFixed(1)} 張、${(sentBytes / 1024 / sec).toFixed(0)} KB/s（每位學生）` : '';
+  sentFrames = 0; sentBytes = 0; statT = t;
+}, 2000);
+
+$('startBtn').onclick = start;
+$('stopBtn').onclick = stop;
+$('pauseBtn').onclick = togglePause;
+$('res').onchange = () => { forceNext = true; };
+window.addEventListener('beforeunload', (e) => { if (live) { e.preventDefault(); e.returnValue = ''; } });
+
+if (!navigator.mediaDevices?.getDisplayMedia) {
+  $('startBtn').disabled = true;
+  $('status').textContent = '⚠ 這個瀏覽器不支援分享畫面，請用 Chrome 或 Edge 開啟 http://localhost 網址';
+}
+loadInfo();
+connect();
+</script>
+</body>
+</html>

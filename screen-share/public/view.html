@@ -6,58 +6,155 @@
 <meta name="theme-color" content="#000000">
 <title>老師的畫面</title>
 <style>
+  * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; }
-  #screen { width: 100vw; height: 100vh; height: 100dvh; object-fit: contain; display: none; -webkit-user-select: none; user-select: none; }
-  #msg { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 22px; padding: 24px; line-height: 1.6; }
+  body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+  #stage { flex: 1; min-height: 0; position: relative; }
+  #screen { width: 100%; height: 100%; object-fit: contain; display: none; -webkit-user-select: none; user-select: none; }
+  #msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 22px; padding: 24px; line-height: 1.6; }
   #msg small { font-size: 15px; color: #aaa; }
   .spinner { width: 44px; height: 44px; border: 4px solid #444; border-top-color: #4db6ac; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 18px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  #badge { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(230,81,0,.9); padding: 6px 16px; border-radius: 20px; font-size: 15px; display: none; pointer-events: none; }
-  #fsBtn { position: fixed; right: 12px; bottom: 12px; background: rgba(255,255,255,.18); color: #fff; border: none; border-radius: 10px; padding: 10px 14px; font-size: 15px; display: none; }
-  #hint { position: fixed; bottom: 12px; left: 12px; font-size: 13px; color: rgba(255,255,255,.55); pointer-events: none; transition: opacity 1s; }
+  #badge { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(230,81,0,.9); padding: 6px 16px; border-radius: 20px; font-size: 15px; display: none; pointer-events: none; z-index: 5; }
+  #nameChip { position: fixed; top: 10px; left: 10px; background: rgba(255,255,255,.18); color: #fff; border: none; border-radius: 16px; padding: 6px 12px; font-size: 14px; z-index: 5; }
+  #fsBtn { position: absolute; right: 12px; bottom: 12px; background: rgba(255,255,255,.18); color: #fff; border: none; border-radius: 10px; padding: 10px 14px; font-size: 15px; display: none; }
+  #hint { position: absolute; bottom: 12px; left: 12px; font-size: 13px; color: rgba(255,255,255,.55); pointer-events: none; transition: opacity 1s; }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* 名字 */
+  #nameBox { position: fixed; inset: 0; background: #004d40; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; z-index: 50; }
+  #nameBox.show { display: flex; }
+  #nameBox h1 { margin: 0; font-size: 26px; text-align: center; }
+  #nameInput { font-size: 28px; padding: 12px; border-radius: 12px; border: none; width: min(320px, 90vw); text-align: center; }
+  #nameOk { font-size: 24px; padding: 12px 40px; border-radius: 12px; border: none; background: #ffc107; color: #333; font-weight: bold; }
+
+  /* 選擇題 */
+  #choice { display: none; background: #111; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); border-top: 2px solid #333; }
+  #choice.show { display: block; }
+  #choiceTip { text-align: center; font-size: 17px; margin-bottom: 8px; min-height: 1.4em; }
+  #choiceBtns { display: grid; gap: 10px; }
+  .opt { position: relative; border: none; border-radius: 14px; color: #fff; font-size: 40px; font-weight: bold; height: 76px; opacity: .9; }
+  .opt.sel { outline: 5px solid #fff; opacity: 1; transform: scale(1.03); }
+  .opt:disabled { opacity: .35; }
+  .opt.sel:disabled { opacity: 1; }
+  .opt .mark { position: absolute; top: 4px; right: 8px; font-size: 22px; }
+  .c1 { background: #e53935; } .c2 { background: #1e88e5; } .c3 { background: #43a047; } .c4 { background: #fb8c00; } .c5 { background: #8e24aa; } .c6 { background: #00897b; }
+
+  /* 圈選題 */
+  #draw { position: fixed; inset: 0; background: #222; display: none; flex-direction: column; z-index: 20; }
+  #draw.show { display: flex; }
+  #drawTip { text-align: center; padding: 8px; font-size: 17px; background: #004d40; }
+  #boardArea { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  #board { position: relative; touch-action: none; }
+  #board canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bg { background: #fff; }
+  #tools { display: flex; gap: 8px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: #111; justify-content: center; flex-wrap: wrap; }
+  #tools button { border: none; border-radius: 10px; padding: 12px 14px; font-size: 18px; font-weight: bold; background: #444; color: #fff; }
+  #tools .pen.sel { outline: 3px solid #fff; }
+  #submitDraw { background: #ffc107 !important; color: #333 !important; padding: 12px 22px !important; }
+  #tools button:disabled { opacity: .35; }
+
+  #result { white-space: nowrap; position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); background: rgba(0,0,0,.85); border-radius: 20px; padding: 24px 32px; font-size: 30px; text-align: center; display: none; z-index: 40; pointer-events: none; }
+  #result.show { display: block; }
 </style>
 </head>
 <body>
-<img id="screen" alt="老師的畫面">
-<div id="msg"><div class="spinner"></div>連線中…</div>
+<div id="stage">
+  <img id="screen" alt="老師的畫面">
+  <div id="msg"><div class="spinner"></div>連線中…</div>
+  <div id="hint">👆 兩指可以放大看細節</div>
+  <button id="fsBtn">⛶ 全螢幕</button>
+</div>
+<div id="choice"><div id="choiceTip"></div><div id="choiceBtns"></div></div>
+
+<div id="draw">
+  <div id="drawTip">⭕ 用手指把答案圈起來，再按「送出」</div>
+  <div id="boardArea"><div id="board"><canvas id="bg"></canvas><canvas id="ink"></canvas></div></div>
+  <div id="tools">
+    <button class="pen sel" data-color="#e53935">🔴 紅筆</button>
+    <button class="pen" data-color="#1e88e5">🔵 藍筆</button>
+    <button id="undoBtn">↩ 復原</button>
+    <button id="clearBtn">🗑 清除</button>
+    <button id="submitDraw">📤 送出</button>
+  </div>
+</div>
+
+<button id="nameChip"></button>
 <div id="badge">⏸ 老師暫停中</div>
-<div id="hint">👆 兩指可以放大看細節</div>
-<button id="fsBtn">⛶ 全螢幕</button>
+<div id="result"></div>
+
+<div id="nameBox">
+  <h1>👋 請輸入你的名字或座號</h1>
+  <input id="nameInput" maxlength="20" autocomplete="off" placeholder="例如：5 號 小明">
+  <button id="nameOk">確定</button>
+</div>
 
 <script>
-const img = document.getElementById('screen');
-const msg = document.getElementById('msg');
-const badge = document.getElementById('badge');
-let currentUrl = null, retry = 0, hasFrame = false, live = false;
+const $ = (id) => document.getElementById(id);
+const img = $('screen'), msg = $('msg'), badge = $('badge');
+let ws = null, currentUrl = null, retry = 0, hasFrame = false, live = false;
+let question = null, mine = null;
 
+// ---------- 身分（存在手機上，重新整理也不用再輸入） ----------
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+let myId = store.get('ss_id');
+if (!myId) { myId = Math.random().toString(36).slice(2) + Date.now().toString(36); store.set('ss_id', myId); }
+let myName = store.get('ss_name') || '';
+
+function askName() {
+  $('nameInput').value = myName;
+  $('nameBox').classList.add('show');
+  setTimeout(() => $('nameInput').focus(), 50);
+}
+function saveName() {
+  const n = $('nameInput').value.trim();
+  if (!n) return $('nameInput').focus();
+  myName = n; store.set('ss_name', n);
+  $('nameBox').classList.remove('show');
+  $('nameChip').textContent = '✏️ ' + n;
+  hello();
+}
+$('nameOk').onclick = saveName;
+$('nameInput').onkeydown = (e) => { if (e.key === 'Enter') saveName(); };
+$('nameChip').onclick = askName;
+const hello = () => myName && ws && ws.readyState === 1 && ws.send(JSON.stringify({ type: 'hello', id: myId, name: myName }));
+
+// ---------- 畫面 ----------
 function show(html, spin) {
   msg.innerHTML = (spin ? '<div class="spinner"></div>' : '') + html;
   msg.style.display = 'flex';
 }
 function refresh() {
   if (live && hasFrame) { msg.style.display = 'none'; img.style.display = 'block'; }
-  else if (!live) { img.style.display = 'none'; hasFrame = false; show('⌛ 等待老師分享畫面…<br><small>保持這個頁面開著就好</small>', true); }
+  else if (!live && !question) { img.style.display = 'none'; hasFrame = false; show('⌛ 等待老師分享畫面…<br><small>保持這個頁面開著就好</small>', true); }
 }
 
 function connect() {
-  const ws = new WebSocket(`ws://${location.host}/ws?role=viewer`);
+  ws = new WebSocket(`ws://${location.host}/ws?role=viewer`);
   ws.binaryType = 'blob';
-  ws.onopen = () => { retry = 0; };
+  ws.onopen = () => { retry = 0; hello(); };
   ws.onmessage = (e) => {
-    if (typeof e.data === 'string') {
-      const m = JSON.parse(e.data);
-      if (m.type === 'state') {
-        live = m.live;
-        badge.style.display = m.live && m.paused ? 'block' : 'none';
-        refresh();
-      }
-      return;
+    if (typeof e.data !== 'string') {
+      const url = URL.createObjectURL(e.data);
+      img.onload = () => {
+        if (currentUrl && currentUrl !== url) URL.revokeObjectURL(currentUrl);
+        currentUrl = url;
+        if (needSnapshot) snapshot();
+      };
+      img.src = url;
+      hasFrame = true;
+      return refresh();
     }
-    const url = URL.createObjectURL(e.data);
-    img.onload = () => { if (currentUrl && currentUrl !== url) URL.revokeObjectURL(currentUrl); currentUrl = url; };
-    img.src = url;
-    hasFrame = true;
-    refresh();
+    const m = JSON.parse(e.data);
+    if (m.type === 'state') {
+      live = m.live;
+      badge.style.display = m.live && m.paused ? 'block' : 'none';
+      refresh();
+    }
+    if (m.type === 'question') onQuestion(m.question, m.mine);
   };
   ws.onclose = () => {
     hasFrame = false; live = false;
@@ -68,16 +165,139 @@ function connect() {
   };
 }
 
-// 手機切回這個頁面時，若連線已斷就立刻重連
-document.addEventListener('visibilitychange', () => { if (!document.hidden) retry = 0; });
+// ---------- 作答 ----------
+let lastQid = null;
+function onQuestion(q, m) {
+  const isNew = q && q.id !== lastQid;
+  const prevMark = mine && mine.mark;
+  question = q; mine = m;
+  lastQid = q ? q.id : null;
 
-const fsBtn = document.getElementById('fsBtn');
+  $('choice').classList.toggle('show', !!q && q.mode === 'choice');
+  $('draw').classList.toggle('show', !!q && q.mode === 'draw');
+  if (!q) { strokes = []; return refresh(); }
+  if (isNew) { strokes = []; if (navigator.vibrate) navigator.vibrate(200); }
+
+  if (q.mode === 'choice') renderChoice(isNew);
+  else {
+    if (isNew) { needSnapshot = true; if (hasFrame && img.complete && img.naturalWidth) snapshot(); }
+    renderDraw();
+    if (m && m.mark !== null && m.mark !== prevMark) flash(m.mark ? '✅ 老師說：答對了！' : '❌ 再想想看喔');
+  }
+}
+
+function renderChoice(isNew) {
+  const box = $('choiceBtns'), n = question.options;
+  box.style.gridTemplateColumns = `repeat(${n <= 4 ? n : 3}, 1fr)`;
+  const chosen = mine && mine.choice, correct = question.correct;
+  box.innerHTML = '';
+  for (let i = 1; i <= n; i++) {
+    const b = document.createElement('button');
+    b.className = `opt c${i}` + (chosen === i ? ' sel' : '');
+    b.innerHTML = i + (correct === i ? '<span class="mark">✅</span>' : (correct && chosen === i ? '<span class="mark">❌</span>' : ''));
+    b.disabled = !question.open;
+    b.onclick = () => ws.send(JSON.stringify({ type: 'answer', qid: question.id, choice: i }));
+    box.appendChild(b);
+  }
+  let tip;
+  if (correct) tip = chosen === correct ? '🎉 答對了！' : chosen ? `正確答案是 ${correct}` : `正確答案是 ${correct}（你沒有作答）`;
+  else if (!question.open) tip = chosen ? `老師已收卷，你選了 ${chosen}` : '老師已收卷';
+  else tip = chosen ? `✔ 你選了 ${chosen}（還可以改）` : '👇 請選出答案';
+  $('choiceTip').textContent = tip;
+  if (correct && isNew === false && chosen) flash(chosen === correct ? '🎉 答對了！' : '❌ 答錯了');
+}
+
+let flashT;
+function flash(text) {
+  $('result').textContent = text; $('result').classList.add('show');
+  clearTimeout(flashT); flashT = setTimeout(() => $('result').classList.remove('show'), 2200);
+}
+
+// ---------- 圈選（手指畫） ----------
+const bg = $('bg'), ink = $('ink'), bctx = bg.getContext('2d'), ictx = ink.getContext('2d');
+let strokes = [], cur = null, color = '#e53935', needSnapshot = false;
+
+function snapshot() {
+  needSnapshot = false;
+  const scale = Math.min(1, 1600 / img.naturalWidth);
+  bg.width = ink.width = Math.round(img.naturalWidth * scale);
+  bg.height = ink.height = Math.round(img.naturalHeight * scale);
+  bctx.drawImage(img, 0, 0, bg.width, bg.height);
+  layout(); redraw();
+}
+function layout() {
+  const area = $('boardArea').getBoundingClientRect();
+  if (!bg.width || !area.width) return;
+  const s = Math.min(area.width / bg.width, area.height / bg.height);
+  $('board').style.width = bg.width * s + 'px';
+  $('board').style.height = bg.height * s + 'px';
+}
+window.addEventListener('resize', layout);
+
+function redraw() {
+  ictx.clearRect(0, 0, ink.width, ink.height);
+  ictx.lineCap = ictx.lineJoin = 'round';
+  for (const s of strokes) {
+    ictx.strokeStyle = s.color; ictx.lineWidth = Math.max(4, ink.width * 0.007);
+    ictx.beginPath();
+    s.pts.forEach(([x, y], i) => i ? ictx.lineTo(x, y) : ictx.moveTo(x, y));
+    if (s.pts.length === 1) ictx.lineTo(s.pts[0][0] + .1, s.pts[0][1]);
+    ictx.stroke();
+  }
+}
+function pos(e) {
+  const r = ink.getBoundingClientRect();
+  return [(e.clientX - r.left) * ink.width / r.width, (e.clientY - r.top) * ink.height / r.height];
+}
+ink.addEventListener('pointerdown', (e) => {
+  if (!question || !question.open) return;
+  ink.setPointerCapture(e.pointerId);
+  cur = { color, pts: [pos(e)] }; strokes.push(cur); redraw();
+});
+ink.addEventListener('pointermove', (e) => { if (cur) { cur.pts.push(pos(e)); redraw(); } });
+const endStroke = () => { cur = null; };
+ink.addEventListener('pointerup', endStroke);
+ink.addEventListener('pointercancel', endStroke);
+
+document.querySelectorAll('.pen').forEach((b) => b.onclick = () => {
+  document.querySelectorAll('.pen').forEach((x) => x.classList.remove('sel'));
+  b.classList.add('sel'); color = b.dataset.color;
+});
+$('undoBtn').onclick = () => { strokes.pop(); redraw(); };
+$('clearBtn').onclick = () => { strokes = []; redraw(); };
+$('submitDraw').onclick = () => {
+  if (!strokes.length) return flash('先把答案圈起來喔');
+  const out = document.createElement('canvas');
+  const s = Math.min(1, 1024 / bg.width);
+  out.width = Math.round(bg.width * s); out.height = Math.round(bg.height * s);
+  const o = out.getContext('2d');
+  o.drawImage(bg, 0, 0, out.width, out.height);
+  o.drawImage(ink, 0, 0, out.width, out.height);
+  ws.send(JSON.stringify({ type: 'answer', qid: question.id, drawing: out.toDataURL('image/jpeg', 0.75) }));
+  flash('📤 已送出');
+};
+
+function renderDraw() {
+  const open = question.open, m = mine;
+  ['undoBtn', 'clearBtn', 'submitDraw'].forEach((id) => $(id).disabled = !open);
+  let tip;
+  if (m && m.mark === true) tip = '✅ 老師說：答對了！';
+  else if (m && m.mark === false) tip = '❌ 老師說：再想想看';
+  else if (!open) tip = m && m.hasDrawing ? '📥 老師已收卷，你的答案已交出' : '📥 老師已收卷';
+  else tip = m && m.hasDrawing ? '✔ 已送出（可以修改後再送一次）' : '⭕ 用手指把答案圈起來，再按「送出」';
+  $('drawTip').textContent = tip;
+  layout();
+}
+
+// ---------- 其他 ----------
+const fsBtn = $('fsBtn');
 if (document.documentElement.requestFullscreen) {
   fsBtn.style.display = 'block';
   fsBtn.onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {});
 }
-setTimeout(() => { document.getElementById('hint').style.opacity = 0; }, 6000);
+setTimeout(() => { $('hint').style.opacity = 0; }, 6000);
 
+if (myName) $('nameChip').textContent = '✏️ ' + myName; else askName();
 connect();
 </script>
 </body>

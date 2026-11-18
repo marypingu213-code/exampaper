@@ -78,20 +78,41 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(404); res.end('Not found');
 });
 
-// ---- WebSocket：老師送畫面，伺服器轉發給所有學生 ----
+// ---- WebSocket：老師送畫面，伺服器轉發給所有學生；並處理作答 ----
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 * 1024 });
 let host = null;
 const viewers = new Set();
 let lastFrame = null;      // 新加入的學生立刻看到最新畫面
 let state = { live: false, paused: false };
 
-function broadcastState() {
-  const msg = JSON.stringify({ type: 'state', ...state });
-  for (const v of viewers) if (v.readyState === 1) v.send(msg);
+// 作答：question = { id, mode: 'choice' | 'draw', options, open, correct }
+let question = null;
+let answers = new Map();   // 學生 id → { id, name, choice, drawing, mark }
+
+const send = (ws, obj) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); };
+const toViewers = (obj) => { const m = JSON.stringify(obj); for (const v of viewers) if (v.readyState === 1) v.send(m); };
+
+function broadcastState() { toViewers({ type: 'state', ...state }); }
+
+function roster() {
+  const map = new Map();
+  for (const v of viewers) if (v.clientId) map.set(v.clientId, { id: v.clientId, name: v.name });
+  return [...map.values()];
 }
-function reportCount() {
-  if (host && host.readyState === 1) host.send(JSON.stringify({ type: 'viewers', count: viewers.size }));
+function reportCount() { send(host, { type: 'viewers', count: viewers.size, students: roster() }); }
+
+// 給學生的題目資訊（不含正確答案，除非已公布）
+function questionFor(id) {
+  if (!question) return { type: 'question', question: null };
+  const a = answers.get(id);
+  return {
+    type: 'question',
+    question: { id: question.id, mode: question.mode, options: question.options, open: question.open,
+                correct: question.revealed ? question.correct : null },
+    mine: a ? { choice: a.choice ?? null, hasDrawing: !!a.drawing, mark: a.mark ?? null } : null,
+  };
 }
+function pushQuestionToAll() { for (const v of viewers) if (v.clientId) send(v, questionFor(v.clientId)); }
 
 wss.on('connection', (ws, req) => {
   const role = new URL(req.url, 'http://x').searchParams.get('role');
@@ -101,6 +122,8 @@ wss.on('connection', (ws, req) => {
     if (host) host.close(4000, 'replaced');
     host = ws;
     reportCount();
+    send(ws, { type: 'question', question });
+    for (const a of answers.values()) send(ws, { type: 'answer', answer: a });
 
     ws.on('message', (data, isBinary) => {
       if (isBinary) {
@@ -110,14 +133,52 @@ wss.on('connection', (ws, req) => {
         }
         return;
       }
-      try {
-        const msg = JSON.parse(data.toString());
-        if (msg.type === 'state') {
+      let msg; try { msg = JSON.parse(data.toString()); } catch { return; }
+      switch (msg.type) {
+        case 'state':
           state = { live: !!msg.live, paused: !!msg.paused };
           if (!state.live) lastFrame = null;
           broadcastState();
+          break;
+        case 'ask': {   // 出題
+          const mode = msg.mode === 'draw' ? 'draw' : 'choice';
+          const n = Math.min(Math.max(Number(msg.options) || 4, 2), 6);
+          question = { id: Date.now().toString(36), mode, options: n, open: true, correct: null, revealed: false };
+          answers = new Map();
+          send(ws, { type: 'question', question });
+          pushQuestionToAll();
+          break;
         }
-      } catch { /* ignore */ }
+        case 'close':   // 收卷
+          if (question) { question.open = false; send(ws, { type: 'question', question }); pushQuestionToAll(); }
+          break;
+        case 'reopen':
+          if (question) { question.open = true; send(ws, { type: 'question', question }); pushQuestionToAll(); }
+          break;
+        case 'reveal':  // 公布選擇題答案
+          if (question && question.mode === 'choice') {
+            question.correct = Number(msg.correct) || null;
+            question.revealed = !!question.correct;
+            question.open = false;
+            send(ws, { type: 'question', question });
+            pushQuestionToAll();
+          }
+          break;
+        case 'mark': {  // 圈選題：老師逐一批改 ✓ / ✗
+          const a = answers.get(msg.id);
+          if (a) {
+            a.mark = msg.mark === true ? true : msg.mark === false ? false : null;
+            send(ws, { type: 'answer', answer: a });
+            for (const v of viewers) if (v.clientId === a.id) send(v, questionFor(a.id));
+          }
+          break;
+        }
+        case 'end':     // 結束作答，學生回到觀看畫面
+          question = null; answers = new Map();
+          send(ws, { type: 'question', question });
+          pushQuestionToAll();
+          break;
+      }
     });
     ws.on('close', () => {
       if (host === ws) {
@@ -131,9 +192,38 @@ wss.on('connection', (ws, req) => {
 
   // 學生
   viewers.add(ws);
-  ws.send(JSON.stringify({ type: 'state', ...state }));
+  send(ws, { type: 'state', ...state });
   if (lastFrame) ws.send(lastFrame, { binary: true });
   reportCount();
+
+  ws.on('message', (data, isBinary) => {
+    if (isBinary) return;
+    let msg; try { msg = JSON.parse(data.toString()); } catch { return; }
+    if (msg.type === 'hello') {
+      ws.clientId = String(msg.id || '').slice(0, 64) || Math.random().toString(36).slice(2);
+      ws.name = String(msg.name || '').trim().slice(0, 20) || '未署名';
+      const a = answers.get(ws.clientId);
+      if (a && a.name !== ws.name) { a.name = ws.name; send(host, { type: 'answer', answer: a }); }
+      reportCount();
+      send(ws, questionFor(ws.clientId));
+      return;
+    }
+    if (msg.type === 'answer' && ws.clientId && question && question.open && msg.qid === question.id) {
+      const a = { id: ws.clientId, name: ws.name, choice: null, drawing: null, mark: null, at: Date.now() };
+      if (question.mode === 'choice') {
+        const c = Number(msg.choice);
+        if (!(c >= 1 && c <= question.options)) return;
+        a.choice = c;
+      } else {
+        const d = String(msg.drawing || '');
+        if (!d.startsWith('data:image/') || d.length > 4_000_000) return;
+        a.drawing = d;
+      }
+      answers.set(ws.clientId, a);
+      send(host, { type: 'answer', answer: a });
+      send(ws, questionFor(ws.clientId));
+    }
+  });
   ws.on('close', () => { viewers.delete(ws); reportCount(); });
 });
 

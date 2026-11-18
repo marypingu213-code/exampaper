@@ -40,6 +40,39 @@
   #bigqr .title { font-size: 5vh; font-weight: bold; color: var(--main); margin-bottom: 2vh; }
   #bigqr .url { font-size: 4vh; }
   #bigqr .count { font-size: 3vh; color: #555; }
+  /* 作答 */
+  #quiz { grid-column: 1 / -1; }
+  .progress { font-size: 18px; margin: 6px 0 10px; }
+  .missing { font-size: 14px; color: #c62828; margin-bottom: 12px; min-height: 1em; }
+  .bars { display: flex; flex-direction: column; gap: 10px; }
+  .bar { display: grid; grid-template-columns: 56px 1fr 150px; gap: 10px; align-items: center; }
+  .bar .num { width: 52px; height: 52px; border-radius: 10px; color: #fff; font-size: 28px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+  .bar .track { background: #eee; border-radius: 8px; height: 52px; position: relative; overflow: hidden; }
+  .bar .fill { height: 100%; border-radius: 8px; transition: width .3s; opacity: .85; }
+  .bar .label { position: absolute; left: 12px; top: 0; bottom: 0; display: flex; align-items: center; font-size: 15px; gap: 8px; flex-wrap: wrap; }
+  .bar .label b { font-size: 20px; }
+  .bar.correct .track { outline: 4px solid #2e7d32; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .tile { border: 3px solid #ddd; border-radius: 10px; overflow: hidden; background: #fafafa; }
+  .tile.ok { border-color: #2e7d32; } .tile.bad { border-color: #c62828; }
+  .tile img { width: 100%; display: block; cursor: zoom-in; background: #fff; }
+  .tile .meta { display: flex; align-items: center; gap: 6px; padding: 6px 8px; font-weight: bold; }
+  .tile .meta span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile button { padding: 4px 10px; font-size: 18px; }
+  .c1 { background: #e53935; } .c2 { background: #1e88e5; } .c3 { background: #43a047; } .c4 { background: #fb8c00; } .c5 { background: #8e24aa; } .c6 { background: #00897b; }
+  /* 大螢幕結果 */
+  #bigres { position: fixed; inset: 0; background: #fff; display: none; flex-direction: column; padding: 4vh 5vw; z-index: 10; overflow: auto; }
+  #bigres.show { display: flex; }
+  #bigres h1 { margin: 0 0 3vh; color: var(--main); font-size: 5vh; display: flex; align-items: center; }
+  #bigres h1 button { margin-left: auto; font-size: 2.2vh; }
+  #bigres .bar { grid-template-columns: 10vh 1fr 0; gap: 2vw; }
+  #bigres .bar .num, #bigres .bar .track { height: 10vh; }
+  #bigres .bar .num { width: 10vh; font-size: 6vh; }
+  #bigres .bar .label b { font-size: 5vh; }
+  #bigres .gallery { grid-template-columns: repeat(auto-fill, minmax(28vw, 1fr)); }
+  #zoom { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: none; align-items: center; justify-content: center; flex-direction: column; z-index: 20; cursor: zoom-out; color: #fff; font-size: 3vh; }
+  #zoom.show { display: flex; }
+  #zoom img { max-width: 96vw; max-height: 88vh; background: #fff; }
 </style>
 </head>
 <body>
@@ -94,6 +127,27 @@
       投影片或考卷畫面沒變動時會自動降低傳輸量，學生多也不容易卡。
     </p>
   </section>
+  <section class="card" id="quiz">
+    <h2>③ 學生作答</h2>
+    <div class="row">
+      <button class="primary" id="askChoice">🔢 出選擇題</button>
+      <label>選項數：
+        <select id="optCount" style="width:auto">
+          <option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option>
+        </select>
+      </label>
+      <button class="primary" id="askDraw">⭕ 出圈選題（學生在畫面上圈答案）</button>
+    </div>
+    <div class="row" id="quizCtl" style="display:none">
+      <button class="warn" id="closeBtn">📥 收卷</button>
+      <button class="ghost" id="bigResBtn">📺 大螢幕顯示結果</button>
+      <label><input type="checkbox" id="hideNames" checked> 大螢幕隱藏姓名</label>
+      <button class="danger" id="endBtn">✖ 結束作答（回到看畫面）</button>
+    </div>
+    <div id="quizBody"><p class="hint">先把題目放在畫面上（例如考卷某一題），再按上面的按鈕。<br>
+      「選擇題」：學生手機出現 1、2、3、4 大按鈕。「圈選題」：學生手機上的畫面會定格，學生用手指把答案圈起來後送出。<br>
+      第一次加入的學生會先輸入名字或座號，你就能看到誰答了什麼。</p></div>
+  </section>
 </main>
 
 <div id="bigqr" title="點一下關閉">
@@ -102,6 +156,9 @@
   <div class="url" id="bigUrl"></div>
   <div class="count">已連線：<b id="bigCount">0</b> 人　（點一下關閉）</div>
 </div>
+
+<div id="bigres"><h1><span id="bigresTitle">作答結果</span><button class="ghost" id="bigresClose">關閉</button></h1><div id="bigresBody"></div></div>
+<div id="zoom"><img id="zoomImg" alt=""><div id="zoomName"></div></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -143,7 +200,9 @@ function connect() {
   ws.onopen = sendState;
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
-    if (msg.type === 'viewers') $('count').textContent = $('bigCount').textContent = msg.count;
+    if (msg.type === 'viewers') { $('count').textContent = $('bigCount').textContent = msg.count; students = msg.students; renderQuiz(); }
+    if (msg.type === 'question') { question = msg.question; if (!question) answers = new Map(); renderQuiz(); }
+    if (msg.type === 'answer') { answers.set(msg.answer.id, msg.answer); renderQuiz(); }
   };
   ws.onclose = (e) => { if (e.code !== 4000) setTimeout(connect, 1500); };
 }
@@ -282,6 +341,91 @@ if (!navigator.mediaDevices?.getDisplayMedia) {
   $('startBtn').disabled = true;
   $('status').textContent = '⚠ 這個瀏覽器不支援分享畫面，請用 Chrome 或 Edge 開啟 http://localhost 網址';
 }
+// ---------- 作答 ----------
+let question = null, answers = new Map(), students = [];
+const send = (o) => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+$('askChoice').onclick = () => send({ type: 'ask', mode: 'choice', options: Number($('optCount').value) });
+$('askDraw').onclick = () => {
+  if (!live) return alert('圈選題需要先「開始分享畫面」，學生才會看到要圈的題目。');
+  send({ type: 'ask', mode: 'draw' });
+};
+$('closeBtn').onclick = () => send({ type: question && question.open ? 'close' : 'reopen' });
+$('endBtn').onclick = () => { send({ type: 'end' }); $('bigres').classList.remove('show'); };
+$('bigResBtn').onclick = () => { $('bigres').classList.add('show'); renderQuiz(); };
+$('bigresClose').onclick = () => $('bigres').classList.remove('show');
+$('hideNames').onchange = renderQuiz;
+$('zoom').onclick = () => $('zoom').classList.remove('show');
+
+function choiceBars(big) {
+  const n = question.options, list = [...answers.values()].filter((a) => a.choice);
+  const total = Math.max(list.length, 1);
+  let html = '<div class="bars">';
+  for (let i = 1; i <= n; i++) {
+    const who = list.filter((a) => a.choice === i);
+    const pct = Math.round(who.length / total * 100);
+    const names = big ? '' : who.map((a) => esc(a.name)).join('、');
+    html += `<div class="bar ${question.correct === i ? 'correct' : ''}">
+      <div class="num c${i}">${i}</div>
+      <div class="track"><div class="fill c${i}" style="width:${list.length ? pct : 0}%"></div>
+        <div class="label"><b>${who.length} 人</b>${names ? '<span>' + names + '</span>' : ''}</div></div>
+      ${big ? '<div></div>' : `<button class="${question.correct === i ? 'primary' : 'ghost'}" data-reveal="${i}">${question.correct === i ? '✅ 正確答案' : '設為答案並公布'}</button>`}
+    </div>`;
+  }
+  return html + '</div>';
+}
+
+function gallery(big) {
+  const list = [...answers.values()].filter((a) => a.drawing).sort((a, b) => a.at - b.at);
+  if (!list.length) return '<p class="hint">還沒有人交卷…</p>';
+  const hide = big && $('hideNames').checked;
+  return '<div class="gallery">' + list.map((a, i) => `
+    <div class="tile ${a.mark === true ? 'ok' : a.mark === false ? 'bad' : ''}">
+      <img src="${a.drawing}" data-zoom="${esc(a.id)}" alt="">
+      <div class="meta"><span>${hide ? '第 ' + (i + 1) + ' 份' : esc(a.name)}</span>
+        ${big ? (a.mark === true ? '✅' : a.mark === false ? '❌' : '') : `
+        <button class="${a.mark === true ? 'primary' : 'ghost'}" data-mark="${esc(a.id)}" data-v="1" title="答對">✓</button>
+        <button class="${a.mark === false ? 'danger' : 'ghost'}" data-mark="${esc(a.id)}" data-v="0" title="答錯">✗</button>`}
+      </div></div>`).join('') + '</div>';
+}
+
+function renderQuiz() {
+  $('quizCtl').style.display = question ? '' : 'none';
+  if (!question) return;
+  const answered = [...answers.values()];
+  const doneIds = new Set(answered.map((a) => a.id));
+  const missing = students.filter((s) => !doneIds.has(s.id));
+  $('closeBtn').textContent = question.open ? '📥 收卷（停止作答）' : '🔓 重新開放作答';
+  const title = (question.mode === 'choice' ? '🔢 選擇題' : '⭕ 圈選題') + (question.open ? '　作答中…' : '　已收卷');
+  let html = `<div class="progress"><b>${title}</b>　已作答 <b>${answered.length}</b> / ${students.length} 人</div>
+    <div class="missing">${missing.length ? '還沒作答：' + missing.map((s) => esc(s.name)).join('、') : (students.length ? '🎉 全部都交了！' : '')}</div>`;
+  html += question.mode === 'choice' ? choiceBars(false) : gallery(false);
+  $('quizBody').innerHTML = html;
+
+  if ($('bigres').classList.contains('show')) {
+    $('bigresTitle').textContent = `${question.mode === 'choice' ? '選擇題' : '圈選題'}結果（${answered.length} 人作答）`;
+    $('bigresBody').innerHTML = question.mode === 'choice' ? choiceBars(true) : gallery(true);
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const r = e.target.closest('[data-reveal]');
+  if (r) return send({ type: 'reveal', correct: Number(r.dataset.reveal) });
+  const m = e.target.closest('[data-mark]');
+  if (m) {
+    const a = answers.get(m.dataset.mark), v = m.dataset.v === '1';
+    return send({ type: 'mark', id: m.dataset.mark, mark: a && a.mark === v ? null : v });
+  }
+  const z = e.target.closest('[data-zoom]');
+  if (z) {
+    const a = answers.get(z.dataset.zoom), inBig = !!z.closest('#bigres');
+    $('zoomImg').src = a.drawing;
+    $('zoomName').textContent = inBig && $('hideNames').checked ? '' : a.name;
+    $('zoom').classList.add('show');
+  }
+});
+
 loadInfo();
 connect();
 </script>
